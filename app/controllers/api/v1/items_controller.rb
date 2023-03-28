@@ -3,23 +3,39 @@ module Api
     class ItemsController < ApplicationController
       def index
         if params[:merchant_id]
-          merchant = Merchant.find(params[:merchant_id])
-          render json: merchant.items
+          begin
+            merchant = Merchant.find(params[:merchant_id])
+          rescue ActiveRecord::RecordNotFound
+            render json: {
+              "message": "your query could not be completed",
+              "errors": "The Merchant ID does not exist"
+            }, status: 404
+          else 
+            render json: ItemSerializer.new(merchant.items)
+          end
         else
-          render json: Item.all
+          render json: ItemSerializer.new(Item.all)
         end
       end
 
       def show
-        render json: Item.find(params[:id])
+        render json: ItemSerializer.new(Item.find(params[:id]))
       end
 
       def create
-        render json: Item.create!(item_params)
+        render json: ItemSerializer.new(Item.create!(item_params)), status: 201
       end
 
       def update
-        render json: Item.update(params[:id], item_params)
+        item = Item.find(params[:id])
+        if item.update(item_params)
+          render json: ItemSerializer.new(item)
+        else
+          render json: {
+            "message": "your query could not be completed",
+            "errors": "The Merchant ID does not exist"
+          }, status: 404
+        end
       end
 
       def destroy
