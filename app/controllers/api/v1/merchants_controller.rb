@@ -6,18 +6,28 @@ module Api
       end
 
       def show
-        if params[:item_id]
-          merchant = Item.find(params[:item_id]).merchant
-          begin
+        begin
+          if params[:item_id]
+            merchant = Item.find(id]).merchant
+          else
             merchant = Merchant.find(params[:id])
-          rescue ActiveRecord::RecordNotFound
-             render json: {
+          end
+          render json: MerchantSerializer.new(merchant)
+        rescue ActiveRecord::RecordNotFound
+          render json: {
               "message": "your query could not be completed",
               "errors": "The Merchant ID does not exist"
             }, status: 404
-          else
-            render json: MerchantSerializer.new(merchant)
-          end
+        end
+      end
+
+      def find 
+        merchant = Merchant.find_one_merchant(params[:name])
+        if merchant.nil?
+          render json: {
+            "message": "your query could not be completed",
+            "errors": "No Merchant matches your search"
+            }, status: 404
         else
           render json: MerchantSerializer.new(merchant)
         end
