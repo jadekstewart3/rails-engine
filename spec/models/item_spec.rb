@@ -47,27 +47,29 @@ RSpec.describe Item, type: :model do
 
     describe ".find_all_items_by_name" do
       it "returns all of the items that match the keyword search" do
-        expect(Item.find_all_items_by_name("plant")).to eq([@planter, @peperomia_plant, @anthirium_plant, @sop_plant])
+        expect(Item.find_all_items_by_name("plant")).to eq([@anthirium_plant, @peperomia_plant, @planter, @sop_plant])
       end
     end
 
-    describe ".find_items_by_min_price" do 
+    describe "find_items_in_price_range" do
+      it "returns items within a range of prices" do
+        expect(Item.find_items_by_price(12.00, 15.00)).to eq([@anthirium_plant, @planter])
+      end
+
+      it "returns items with a price less than or equal to the parameter" do 
+        expect(Item.find_items_by_price(nil, 8.99)).to eq([@scented_candle, @sop_plant])
+
+        coochie_copi = Item.create!(name: "Coochie Copi Night Light", description: "night light", unit_price: 5.99, merchant_id: @merchant_2.id)
+
+        expect(Item.find_items_by_price(nil, 8.99)).to eq([@scented_candle, coochie_copi, @sop_plant])
+      end
+
       it "returns items with a price greater than or equal to the parameter" do 
-        
-        expect(Item.find_items_by_min_price(8.99).to_a).to eq([@planter, @anthirium_plant, @peperomia_plant, @sop_plant])
+      
+        expect(Item.find_items_by_price(8.99, nil)).to eq([@anthirium_plant, @peperomia_plant, @planter, @sop_plant])
         terrerium = Item.create!(name: "Terrerium", description: "Plant terrerium", unit_price: 50.99, merchant_id: @merchant_2.id)
         
-        expect(Item.find_items_by_min_price(8.99)).to eq([terrerium, @planter, @anthirium_plant, @peperomia_plant, @sop_plant])
-      end
-    end
-
-    describe ".find_items_by_max_price" do 
-      it "returns items with a price less than or equal to the parameter" do 
-        expect(Item.find_items_by_max_price(8.99)).to eq([@sop_plant, @scented_candle])
-
-        choochie_copi = Item.create!(name: "Coochie Copi Night Light", description: "night light", unit_price: 6.99, merchant_id: @merchant_2.id)
-
-        expect(Item.find_items_by_max_price(8.99)).to eq([@sop_plant, @scented_candle, choochie_copi])
+        expect(Item.find_items_by_price(8.99,nil)).to eq([@anthirium_plant, @peperomia_plant, @planter, @sop_plant, terrerium])
       end
     end
   end
