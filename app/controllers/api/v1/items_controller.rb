@@ -39,7 +39,14 @@ module Api
       end
 
       def destroy
-        render json: Item.delete(params[:id])
+        item = Item.find(params[:id])
+        item.get_one_item_invoices.destroy_all
+        item.destroy
+      end
+
+      def find_all
+        items = Item.find_all_items_by_name(params[:name])
+        render json: ItemSerializer.new(items)
       end
 
       private
