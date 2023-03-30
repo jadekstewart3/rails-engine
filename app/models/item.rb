@@ -17,14 +17,6 @@ class Item < ApplicationRecord
     where("name ILIKE ?", "%#{keyword}%").order(name: :asc)
   end
 
-  # def self.find_items_by_min_price(min_value)
-  #   where("unit_price >= ?", "#{min_value}").order(unit_price: :desc)
-  # end
-
-  # def self.find_items_by_max_price(max_value)
-  #   where("unit_price <= ?", "#{max_value}").order(unit_price: :desc)
-  # end
-
   def self.find_items_by_price(min, max)
     if min != nil && max != nil
       where("unit_price >= ? AND unit_price <= ?", min, max)
