@@ -46,7 +46,7 @@ RSpec.describe Item, type: :model do
     end
 
     describe ".find_all_items_by_name" do
-      it "returns all of the items that match the keyword search" do
+      it "returns all of the items that match the keyword search in alphabatical order" do
         expect(Item.find_all_items_by_name("plant")).to eq([@anthirium_plant, @peperomia_plant, @planter, @sop_plant])
       end
     end
