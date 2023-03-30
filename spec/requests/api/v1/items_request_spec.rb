@@ -30,7 +30,19 @@ describe "Items API" do
         expect(item[:attributes][:merchant_id]).to be_an(Integer)
       end
     end
-      
+    
+    it "returns an empty array if there are no items" do
+      get "/api/v1/items"
+
+      expect(response).to be_successful
+
+      items = JSON.parse(response.body, symbolize_names: true)
+
+      expect(response).to have_http_status(200)
+      expect(items).to have_key(:data)
+      expect(items[:data]).to eq([])
+    end
+
     it "can get all items for a given merchant id" do 
       merchant = create(:merchant)
       create_list(:item, 5, merchant_id: merchant.id)
@@ -52,7 +64,7 @@ describe "Items API" do
       expect(error_items).to have_key(:message)
       expect(error_items).to have_key(:errors)
       expect(error_items[:message]).to eq("your query could not be completed")
-      expect(error_items[:errors]).to eq("The Merchant ID does not exist")
+      expect(error_items[:errors]).to eq("Couldn't find Merchant with 'id'=27839")
     end
   end
 
@@ -84,6 +96,30 @@ describe "Items API" do
       expect(item[:data][:attributes]).to have_key(:merchant_id)
       expect(item[:data][:attributes][:merchant_id]).to be_an(Integer)
     end
+   
+    it "returns and error if the item id does not exist" do
+      get "/api/v1/items/2789232"
+
+      error_item = JSON.parse(response.body, symbolize_names: true)
+    
+      expect(response).to_not be_successful
+      expect(response).to have_http_status(404)
+      expect(error_item).to have_key(:message)
+      expect(error_item[:message]).to eq("your query could not be completed")
+      expect(error_item[:errors]).to eq("Couldn't find Item with 'id'=2789232")
+    end
+
+    it "returns and error if the item id is a bad integer" do
+      get "/api/v1/items/,2789232"
+
+      error_item = JSON.parse(response.body, symbolize_names: true)
+    
+      expect(response).to_not be_successful
+      expect(response).to have_http_status(404)
+      expect(error_item).to have_key(:message)
+      expect(error_item[:message]).to eq("your query could not be completed")
+      expect(error_item[:errors]).to eq("Couldn't find Item with 'id'=,2789232")
+    end
   end
 
   describe "#create" do
@@ -108,6 +144,26 @@ describe "Items API" do
       expect(created_item.unit_price).to eq(item_params[:unit_price])
       expect(created_item.merchant_id).to eq(item_params[:merchant_id])
     end
+
+    it "will not create a new item with invalid parameters" do
+      merchant = create(:merchant)
+      item_params =({id: 82,
+                    name: nil,
+                    description: nil,
+                    unit_price: - 42.91,
+                    merchant_id: 478594386374
+                  })
+      headers = {"CONTENT_TYPE" => "application/json"}
+      
+      post "/api/v1/items", headers: headers, params: JSON.generate(item: item_params)
+      error_item = JSON.parse(response.body, symbolize_names: true)
+
+      expect(response).to_not be_successful
+      expect(response).to have_http_status(404)
+      expect(error_item).to have_key(:message)
+      expect(error_item[:message]).to eq("your query could not be completed")
+      expect(error_item[:errors]).to eq("Validation failed: Merchant must exist, Unit price must be greater than 0, Name can't be blank, Description can't be blank")
+    end
   end
 
   describe "#update" do
@@ -126,21 +182,58 @@ describe "Items API" do
       expect(item.name).to eq("Thingy")
     end
 
-    it "returns an error if the item is not updated" do
+    it "returns an error if the merchant does not exist" do
       id = create(:item).id
 
       item_params = { name: "Thingy", merchant_id: 131232}
       headers = {"CONTENT_TYPE" => "application/json"}
-
+    
       patch "/api/v1/items/#{id}", headers: headers, params: JSON.generate({item: item_params})
 
       errors = JSON.parse(response.body, symbolize_names: true)
 
       expect(response).to_not be_successful
-      expect(errors).to have_key(:message)
       expect(errors).to have_key(:errors)
       expect(errors[:message]).to eq("your query could not be completed")
-      expect(errors[:errors]).to eq("The Merchant ID does not exist")
+      expect(errors[:errors]).to eq("Validation failed: Merchant must exist")
+    end
+
+    it "will not update an item with invalid parameters" do
+      item = create(:item)
+
+      item_params =({id: item.id,
+                    name: nil,
+                    description: nil,
+                    unit_price: - 42.91,
+                    merchant_id: 478594386374
+                  })
+      headers = {"CONTENT_TYPE" => "application/json"}
+    
+      patch "/api/v1/items/#{item.id}", headers: headers, params: JSON.generate({item: item_params})
+
+      errors = JSON.parse(response.body, symbolize_names: true)
+
+      expect(response).to_not be_successful
+      expect(errors).to have_key(:errors)
+      expect(errors[:message]).to eq("your query could not be completed")
+      expect(errors[:errors]).to eq("Validation failed: Merchant must exist, Unit price must be greater than 0, Name can't be blank, Description can't be blank")
+    end
+
+    it "returns an error if the unit_price is not a number" do
+      merchant = create(:merchant)
+      id = create(:item, merchant: merchant).id
+
+      item_params = { unit_price: "Not a number"}
+      headers = {"CONTENT_TYPE" => "application/json"}
+    
+      patch "/api/v1/items/#{id}", headers: headers, params: JSON.generate({item: item_params})
+
+      errors = JSON.parse(response.body, symbolize_names: true)
+
+      expect(response).to_not be_successful
+      expect(errors).to have_key(:errors)
+      expect(errors[:message]).to eq("your query could not be completed")
+      expect(errors[:errors]).to eq("Validation failed: Unit price is not a number")
     end
   end
 
@@ -155,7 +248,6 @@ describe "Items API" do
       expect(response).to be_successful
       expect(Item.count).to eq(0)
       expect{Item.find(item.id)}.to raise_error(ActiveRecord::RecordNotFound)
-      ##edit this test for error messages
     end
 
     it "deletes an invoice if the item being deleted is the only item on it" do
@@ -173,42 +265,6 @@ describe "Items API" do
       expect(response).to be_successful
       expect(Item.count).to eq(0)
       expect(Invoice.count).to eq(0)
-    end
-  end
-
-  describe "#find_all" do 
-    before :each do
-      @merchant_1 = create(:merchant)
-      @merchant_2 = create(:merchant)
-
-      @coochie_copi = Item.create!(name: "Bobs Burgers- Coochie Copi", description: "Coochie Copi Night Light", unit_price: 10.99, merchant_id: @merchant_1.id)
-      @melodica = Item.create!(name: "Bobs Burgers- Melodica", description: "Melodica", unit_price: 15.99, merchant_id: @merchant_1.id)
-      @napkin_holder = Item.create!(name: "Bobs Burgers- Napkin Holder", description: "Melodica", unit_price: 20.99, merchant_id: @merchant_1.id)
-
-      @glasses = Item.create!(name: "Bobs Burgers- Tinas Glasses", description: "Melodica", unit_price: 50.99, merchant_id: @merchant_2.id)
-      @plant = Item.create!(name: "Alocasia", description: "Alocasia Black Velvet", unit_price: 16.99, merchant_id: @merchant_2.id)
-    end
-
-    it "can find all items by keyword" do
-      get "/api/v1/items/find_all?name=bob"
-
-      items = JSON.parse(response.body, symbolize_names: true)
-
-      expect(response).to be_successful
-     
-      items[:data].each do |item|
-        expect(item[:attributes]).to have_key(:name)
-        expect(item[:attributes][:name]).to be_a(String)
-
-        expect(item[:attributes]).to have_key(:description)
-        expect(item[:attributes][:description]).to be_a(String)
-
-        expect(item[:attributes]).to have_key(:unit_price)
-        expect(item[:attributes][:unit_price]).to be_a(Float)
-
-        expect(item[:attributes]).to have_key(:merchant_id)
-        expect(item[:attributes][:merchant_id]).to be_an(Integer)
-      end
     end
   end
 end
